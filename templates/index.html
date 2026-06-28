@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>House Price Predictor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="header-inner">
+    <div class="logo">🏠 House Price Predictor</div>
+    <div class="model-badge">GradientBoosting · R² {{ metrics.r2 }}</div>
+  </div>
+</header>
+
+<!-- ── Metrics Bar ── -->
+<div class="metrics-bar">
+  <div class="metric"><span class="metric-label">R² Score</span><span class="metric-val">{{ metrics.r2 }}</span></div>
+  <div class="metric"><span class="metric-label">RMSE</span><span class="metric-val">${{ "{:,.0f}".format(metrics.rmse) }}</span></div>
+  <div class="metric"><span class="metric-label">MAE</span><span class="metric-val">${{ "{:,.0f}".format(metrics.mae) }}</span></div>
+  <div class="metric"><span class="metric-label">MAPE</span><span class="metric-val">{{ metrics.mape }}%</span></div>
+  <div class="metric"><span class="metric-label">CV R²</span><span class="metric-val">{{ metrics.cv_r2_mean }} ± {{ metrics.cv_r2_std }}</span></div>
+  <div class="metric"><span class="metric-label">Training Samples</span><span class="metric-val">{{ metrics.train_size }}</span></div>
+</div>
+
+<!-- ── Main ── -->
+<main>
+  <form id="predict-form">
+
+    <!-- Section 1: Basic Info -->
+    <section class="card">
+      <h2>🏗️ Basic Information</h2>
+      <div class="grid">
+        <div class="field">
+          <label>Overall Quality <span class="hint">(1–10)</span></label>
+          <input type="range" id="OverallQual" name="OverallQual" min="1" max="10" value="5" oninput="this.nextElementSibling.textContent=this.value">
+          <output>5</output>
+        </div>
+        <div class="field">
+          <label>Building Type</label>
+          <select id="BldgType" name="BldgType">
+            <option value="1Fam">Single Family</option>
+            <option value="2fmCon">2-Family Conversion</option>
+            <option value="Duplex">Duplex</option>
+            <option value="TwnhsE">Townhouse End</option>
+            <option value="Twnhs">Townhouse Inside</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>House Style</label>
+          <select id="HouseStyle" name="HouseStyle">
+            <option value="1Story">1 Story</option>
+            <option value="2Story" selected>2 Story</option>
+            <option value="1.5Fin">1.5 Story Finished</option>
+            <option value="SLvl">Split Level</option>
+            <option value="SFoyer">Split Foyer</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Zoning</label>
+          <select id="MSZoning" name="MSZoning">
+            <option value="RL" selected>Residential Low</option>
+            <option value="RM">Residential Medium</option>
+            <option value="FV">Floating Village</option>
+            <option value="RH">Residential High</option>
+            <option value="C (all)">Commercial</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Neighborhood</label>
+          <select id="Neighborhood" name="Neighborhood">
+            <option value="NAmes">North Ames</option>
+            <option value="CollgCr">College Creek</option>
+            <option value="OldTown">Old Town</option>
+            <option value="Edwards">Edwards</option>
+            <option value="Somerst">Somerset</option>
+            <option value="Gilbert">Gilbert</option>
+            <option value="NridgHt">Northridge Heights</option>
+            <option value="Sawyer">Sawyer</option>
+            <option value="NWAmes">NW Ames</option>
+            <option value="SawyerW">Sawyer West</option>
+            <option value="BrkSide">Brookside</option>
+            <option value="Crawfor">Crawford</option>
+            <option value="Mitchel">Mitchell</option>
+            <option value="NoRidge">Northridge</option>
+            <option value="Timber">Timberland</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Year Built</label>
+          <input type="number" id="YearBuilt" name="YearBuilt" value="1990" min="1870" max="2010" />
+        </div>
+        <div class="field">
+          <label>Year Remodeled</label>
+          <input type="number" id="YearRemodAdd" name="YearRemodAdd" value="2000" min="1950" max="2010" />
+        </div>
+        <div class="field">
+          <label>Sale Year</label>
+          <input type="number" id="YrSold" name="YrSold" value="2008" min="2006" max="2010" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Size & Rooms -->
+    <section class="card">
+      <h2>📐 Size & Rooms</h2>
+      <div class="grid">
+        <div class="field">
+          <label>Above Ground Living Area (sq ft)</label>
+          <input type="number" id="GrLivArea" name="GrLivArea" value="1500" min="400" max="6000" />
+        </div>
+        <div class="field">
+          <label>1st Floor Area (sq ft)</label>
+          <input type="number" id="1stFlrSF" name="1stFlrSF" value="1000" min="300" max="5000" />
+        </div>
+        <div class="field">
+          <label>2nd Floor Area (sq ft)</label>
+          <input type="number" id="2ndFlrSF" name="2ndFlrSF" value="0" min="0" max="3000" />
+        </div>
+        <div class="field">
+          <label>Total Basement Area (sq ft)</label>
+          <input type="number" id="TotalBsmtSF" name="TotalBsmtSF" value="1000" min="0" max="6000" />
+        </div>
+        <div class="field">
+          <label>Lot Area (sq ft)</label>
+          <input type="number" id="LotArea" name="LotArea" value="9000" min="1000" max="100000" />
+        </div>
+        <div class="field">
+          <label>Bedrooms Above Grade</label>
+          <input type="number" id="BedroomAbvGr" name="BedroomAbvGr" value="3" min="0" max="8" />
+        </div>
+        <div class="field">
+          <label>Full Bathrooms</label>
+          <input type="number" id="FullBath" name="FullBath" value="2" min="0" max="4" />
+        </div>
+        <div class="field">
+          <label>Half Bathrooms</label>
+          <input type="number" id="HalfBath" name="HalfBath" value="0" min="0" max="2" />
+        </div>
+        <div class="field">
+          <label>Total Rooms Above Grade</label>
+          <input type="number" id="TotRmsAbvGrd" name="TotRmsAbvGrd" value="7" min="2" max="15" />
+        </div>
+        <div class="field">
+          <label>Fireplaces</label>
+          <input type="number" id="Fireplaces" name="Fireplaces" value="1" min="0" max="4" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Garage & Extras -->
+    <section class="card">
+      <h2>🚗 Garage & Outdoors</h2>
+      <div class="grid">
+        <div class="field">
+          <label>Garage Cars</label>
+          <input type="number" id="GarageCars" name="GarageCars" value="2" min="0" max="4" />
+        </div>
+        <div class="field">
+          <label>Garage Area (sq ft)</label>
+          <input type="number" id="GarageArea" name="GarageArea" value="480" min="0" max="1500" />
+        </div>
+        <div class="field">
+          <label>Garage Type</label>
+          <select id="GarageType" name="GarageType">
+            <option value="Attchd" selected>Attached</option>
+            <option value="Detchd">Detached</option>
+            <option value="BuiltIn">Built-In</option>
+            <option value="CarPort">Carport</option>
+            <option value="Unknown">None</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Garage Finish</label>
+          <select id="GarageFinish" name="GarageFinish">
+            <option value="Fin">Finished</option>
+            <option value="RFn" selected>Rough Finished</option>
+            <option value="Unf">Unfinished</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Wood Deck Area (sq ft)</label>
+          <input type="number" id="WoodDeckSF" name="WoodDeckSF" value="0" min="0" max="1000" />
+        </div>
+        <div class="field">
+          <label>Open Porch Area (sq ft)</label>
+          <input type="number" id="OpenPorchSF" name="OpenPorchSF" value="40" min="0" max="600" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Quality -->
+    <section class="card">
+      <h2>⭐ Quality & Condition</h2>
+      <div class="grid">
+        <div class="field">
+          <label>External Quality</label>
+          <select id="ExterQual" name="ExterQual">
+            <option value="Ex">Excellent</option>
+            <option value="Gd">Good</option>
+            <option value="TA" selected>Typical/Average</option>
+            <option value="Fa">Fair</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Kitchen Quality</label>
+          <select id="KitchenQual" name="KitchenQual">
+            <option value="Ex">Excellent</option>
+            <option value="Gd">Good</option>
+            <option value="TA" selected>Typical/Average</option>
+            <option value="Fa">Fair</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Basement Quality</label>
+          <select id="BsmtQual" name="BsmtQual">
+            <option value="Ex">Excellent (100+ in)</option>
+            <option value="Gd">Good (90-99 in)</option>
+            <option value="TA" selected>Typical (80-89 in)</option>
+            <option value="Fa">Fair (70-79 in)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Heating QC</label>
+          <select id="HeatingQC" name="HeatingQC">
+            <option value="Ex" selected>Excellent</option>
+            <option value="Gd">Good</option>
+            <option value="TA">Average</option>
+            <option value="Fa">Fair</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Central Air</label>
+          <select id="CentralAir" name="CentralAir">
+            <option value="Y" selected>Yes</option>
+            <option value="N">No</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Foundation</label>
+          <select id="Foundation" name="Foundation">
+            <option value="PConc" selected>Poured Concrete</option>
+            <option value="CBlock">Cinder Block</option>
+            <option value="BrkTil">Brick & Tile</option>
+            <option value="Slab">Slab</option>
+            <option value="Stone">Stone</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Sale Condition</label>
+          <select id="SaleCondition" name="SaleCondition">
+            <option value="Normal" selected>Normal</option>
+            <option value="Abnorml">Abnormal</option>
+            <option value="Partial">Partial</option>
+            <option value="AdjLand">Adj Land</option>
+            <option value="Alloca">Allocation</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Sale Type</label>
+          <select id="SaleType" name="SaleType">
+            <option value="WD" selected>Warranty Deed</option>
+            <option value="New">New</option>
+            <option value="COD">COD</option>
+            <option value="CWD">Warranty Deed Cash</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <button type="submit" class="btn-predict" id="submit-btn">
+      <span id="btn-text">🔮 Predict Price</span>
+    </button>
+  </form>
+
+  <!-- Result Panel -->
+  <div id="result-panel" class="result-panel hidden">
+    <div class="result-inner">
+      <div class="result-label">Estimated House Price</div>
+      <div class="result-price" id="result-price"></div>
+      <div class="result-range" id="result-range"></div>
+      <div class="result-sub" id="result-sub"></div>
+    </div>
+  </div>
+
+  <!-- Error Panel -->
+  <div id="error-panel" class="error-panel hidden">
+    <span id="error-msg"></span>
+  </div>
+</main>
+
+<footer>
+  <p>Built with Python · Scikit-learn · Flask &nbsp;|&nbsp; Dataset: Ames Housing (1,460 homes)</p>
+</footer>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
